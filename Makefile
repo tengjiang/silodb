@@ -35,6 +35,7 @@ USE_MALLOC_MODE_S=$(strip $(USE_MALLOC_MODE))
 MODE_S=$(strip $(MODE))
 MASSTREE_S=$(strip $(MASSTREE))
 MASSTREE_CONFIG:=--enable-max-key-len=1024
+INSTR=$(strip $(ENABLE_INSTR))
 
 ifeq ($(DEBUG_S),1)
 	OSUFFIX_D=.debug
@@ -77,6 +78,11 @@ endif
 
 CXXFLAGS := -g -Wall -std=c++0x -Wno-maybe-uninitialized
 CXXFLAGS += -MD -Ithird-party/lz4 -DCONFIG_H=\"$(CONFIG_H)\"
+
+ifeq ($(INSTR),1)
+        CXXFLAGS += -DENABLE_INSTR
+endif
+
 ifeq ($(DEBUG_S),1)
         CXXFLAGS += -fno-omit-frame-pointer -DDEBUG
 else

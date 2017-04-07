@@ -130,7 +130,12 @@ bench_worker::run()
         const auto ret = workload[i].fn(this);
         if (likely(ret.first)) {
           ++ntxn_commits;
-          latency_numer_us += t.lap();
+          double duration = t.lap();
+          latency_numer_us += duration;
+#ifdef ENABLE_INSTR
+          latencies.push_back(duration);
+          txn_type.push_back(i);
+#endif
           backoff_shifts >>= 1;
         } else {
           ++ntxn_aborts;
@@ -159,6 +164,20 @@ bench_worker::run()
       d -= workload[i].frequency;
     }
   }
+#ifdef ENABLE_INSTR
+  ofstream myfile;
+  char buff[100];
+  sprintf(buff, "worker_%d_latencies.txt", worker_id);
+  std::string buffAsStdStr = buff;
+  myfile.open (buffAsStdStr);
+  for (unsigned int i = 0; i< latencies.size(); i ++) {
+    myfile << latencies[i];
+    myfile << "\t";
+    myfile << txn_type[i];
+    myfile << "\n";
+  }
+  myfile.close();
+#endif
 }
 
 void

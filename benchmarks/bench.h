@@ -140,6 +140,10 @@ public:
     double frequency;
     txn_fn_t fn;
   };
+#ifdef ENABLE_INSTR
+  std::vector<double> latencies;
+  std::vector<int> txn_type;
+#endif
   typedef std::vector<workload_desc> workload_desc_vec;
   virtual workload_desc_vec get_workload() const = 0;
 
