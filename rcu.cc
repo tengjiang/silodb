@@ -287,12 +287,13 @@ rcu::pin_current_thread(size_t cpu)
 {
   sync &s = mysync();
   s.set_pin_cpu(cpu);
-  auto node = numa_node_of_cpu(cpu);
-  // pin to node
-  ALWAYS_ASSERT(!numa_run_on_node(node));
-  // is numa_run_on_node() guaranteed to take effect immediately?
-  ALWAYS_ASSERT(!sched_yield());
-  // release current thread-local cache back to allocator
+  // The following code doesn't work on 2 nodes with interleaved core numbering.
+  // auto node = numa_node_of_cpu(cpu);
+  // // pin to node
+  // ALWAYS_ASSERT(!numa_run_on_node(node));
+  // // is numa_run_on_node() guaranteed to take effect immediately?
+  // ALWAYS_ASSERT(!sched_yield());
+  // // release current thread-local cache back to allocator
   s.do_release();
 }
 
