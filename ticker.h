@@ -181,12 +181,12 @@ private:
   tickerloop()
   {
     // allow the ticker to run anywhere
-    cpu_set_t mask;
-    CPU_ZERO(&mask);
-    for (int i=0;i<CPU_SETSIZE;i++)
-      CPU_SET(i,&mask);
-    int ret = sched_setaffinity(0, sizeof(mask), &mask);
-    ALWAYS_ASSERT(!ret);
+    // cpu_set_t mask;
+    // CPU_ZERO(&mask);
+    // for (int i=0;i<CPU_SETSIZE;i++)
+    //   CPU_SET(i,&mask);
+    // int ret = sched_setaffinity(0, sizeof(mask), &mask);
+    // ALWAYS_ASSERT(!ret);
 
     // runs as daemon
     util::timer loop_timer;

@@ -148,7 +148,7 @@ static int g_new_order_remote_item_pct = 1;
 static int g_new_order_fast_id_gen = 0;
 static int g_uniform_item_dist = 0;
 static int g_order_status_scan_hack = 0;
-static unsigned g_txn_workload_mix[] = { 45, 43, 4, 4, 4 }; // default TPC-C workload mix
+unsigned g_txn_workload_mix[] = { 45, 43, 4, 4, 4 }; // default TPC-C workload mix
 
 static aligned_padded_elem<spinlock> *g_partition_locks = nullptr;
 static aligned_padded_elem<atomic<uint64_t>> *g_district_ids = nullptr;
@@ -2089,6 +2089,19 @@ protected:
     }
     return ret;
   }
+
+   virtual bench_worker *
+   mkworker(unsigned int thread_hint)
+   {
+    static std::atomic<int> workers;
+    int wid = workers.fetch_add(1);
+    fast_random r(wid);
+    return new tpcc_worker(
+              wid,
+              r.next(), db, open_tables, partitions,
+              &barrier_a, &barrier_b,
+              (thread_hint % NumWarehouses()) + 1, (thread_hint % NumWarehouses()) + 2);
+   }
 
   virtual vector<bench_worker *>
   make_workers()

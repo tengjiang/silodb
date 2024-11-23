@@ -76,7 +76,8 @@ else
 	$(error invalid mode)
 endif
 
-CXXFLAGS := -g -Wall -std=c++0x -Wno-maybe-uninitialized
+CXXFLAGS := -g -Wall -std=c++0x -Wno-format-truncation -Wno-maybe-uninitialized -Wno-unused-variable
+CXXFLAGS += -Wno-address-of-packed-member -Wno-class-memaccess
 CXXFLAGS += -MD -Ithird-party/lz4 -DCONFIG_H=\"$(CONFIG_H)\"
 
 ifeq ($(INSTR),1)

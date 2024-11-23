@@ -310,6 +310,7 @@ allocator::ReleaseArenas(void **arenas)
 static void
 numa_hint_memory_placement(void *px, size_t sz, unsigned node)
 {
+  return;
   struct bitmask *bm = numa_allocate_nodemask();
   numa_bitmask_setbit(bm, node);
   numa_interleave_memory(px, sz, bm);
