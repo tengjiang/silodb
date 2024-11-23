@@ -134,7 +134,7 @@ bench_worker::run()
           latency_numer_us += duration;
 #ifdef ENABLE_INSTR
           latencies.push_back(duration);
-          txn_type.push_back(i);
+          // txn_type.push_back(i);
 #endif
           backoff_shifts >>= 1;
         } else {
@@ -164,20 +164,20 @@ bench_worker::run()
       d -= workload[i].frequency;
     }
   }
-#ifdef ENABLE_INSTR
-  ofstream myfile;
-  char buff[100];
-  sprintf(buff, "worker_%d_latencies.txt", worker_id);
-  std::string buffAsStdStr = buff;
-  myfile.open (buffAsStdStr);
-  for (unsigned int i = 0; i< latencies.size(); i ++) {
-    myfile << latencies[i];
-    myfile << "\t";
-    myfile << txn_type[i];
-    myfile << "\n";
-  }
-  myfile.close();
-#endif
+// #ifdef ENABLE_INSTR
+//   ofstream myfile;
+//   char buff[100];
+//   sprintf(buff, "worker_%d_latencies.txt", worker_id);
+//   std::string buffAsStdStr = buff;
+//   myfile.open (buffAsStdStr);
+//   for (unsigned int i = 0; i< latencies.size(); i ++) {
+//     myfile << latencies[i];
+//     myfile << "\t";
+//     myfile << txn_type[i];
+//     myfile << "\n";
+//   }
+//   myfile.close();
+// #endif
 }
 
 void
@@ -343,6 +343,25 @@ bench_runner::run()
       }
     }
 #endif
+
+#ifdef ENABLE_INSTR
+// Collect latencies from all workers
+vector<double> all_latencies;
+for (size_t i = 0; i < nthreads; i++) {
+    all_latencies.insert(all_latencies.end(),
+                         workers[i]->latencies.begin(), workers[i]->latencies.end());
+}
+
+// Calculate p99 latency
+double p99_latency_ms = 0.0;
+if (!all_latencies.empty()) {
+    std::sort(all_latencies.begin(), all_latencies.end());
+    size_t p99_index = static_cast<size_t>(0.99 * all_latencies.size());
+    if (p99_index >= all_latencies.size())
+        p99_index = all_latencies.size() - 1; // Bounds check
+    p99_latency_ms = all_latencies[p99_index] / 1000.0; // Convert from us to ms
+}
+#endif
     cerr << "--- benchmark statistics ---" << endl;
     cerr << "runtime: " << elapsed_sec << " sec" << endl;
     cerr << "memory delta: " << delta_mb  << " MB" << endl;
@@ -356,6 +375,9 @@ bench_runner::run()
     cerr << "agg_persist_throughput: " << agg_persist_throughput << " ops/sec" << endl;
     cerr << "avg_per_core_persist_throughput: " << avg_per_core_persist_throughput << " ops/sec/core" << endl;
     cerr << "avg_latency: " << avg_latency_ms << " ms" << endl;
+#ifdef ENABLE_INSTR
+    cerr << "p99_latency: " << p99_latency_ms << " ms" << endl;
+#endif
     cerr << "avg_persist_latency: " << avg_persist_latency_ms << " ms" << endl;
     cerr << "agg_abort_rate: " << agg_abort_rate << " aborts/sec" << endl;
     cerr << "avg_per_core_abort_rate: " << avg_per_core_abort_rate << " aborts/sec/core" << endl;
