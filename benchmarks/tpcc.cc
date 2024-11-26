@@ -327,15 +327,15 @@ public:
   static inline uint32_t
   GetCurrentTimeMillis()
   {
-    //struct timeval tv;
-    //ALWAYS_ASSERT(gettimeofday(&tv, 0) == 0);
-    //return tv.tv_sec * 1000;
+    struct timeval tv;
+    ALWAYS_ASSERT(gettimeofday(&tv, 0) == 0);
+    return tv.tv_sec * 1000;
 
     // XXX(stephentu): implement a scalable GetCurrentTimeMillis()
     // for now, we just give each core an increasing number
 
-    static __thread uint32_t tl_hack = 0;
-    return tl_hack++;
+    // static __thread uint32_t tl_hack = 0;
+    // return tl_hack++;
   }
 
   // utils for generating random #s and strings
