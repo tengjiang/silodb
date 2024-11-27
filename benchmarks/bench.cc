@@ -185,7 +185,7 @@ void bench_worker::run() {
     }
 
     next_generation_time += std::chrono::microseconds(
-        static_cast<int64_t>(poisson_process_next_arrival(rate) * 1e6));
+        static_cast<int64_t>(poisson_process_next_arrival(rate) * 1e3));
   }
 }
 
