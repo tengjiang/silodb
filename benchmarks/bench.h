@@ -41,6 +41,7 @@ extern int slow_exit;
 extern int retry_aborted_transaction;
 extern int no_reset_counters;
 extern int backoff_aborted_transaction;
+extern double poisson_rate;
 
 class scoped_db_thread_ctx {
 public:

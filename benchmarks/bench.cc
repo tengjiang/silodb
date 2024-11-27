@@ -45,6 +45,7 @@ int slow_exit = 0;
 int retry_aborted_transaction = 0;
 int no_reset_counters = 0;
 int backoff_aborted_transaction = 0;
+double poisson_rate = 1000; // Default QPS/RPS value
 
 // Poisson process arrivals
 double poisson_process_next_arrival(double rate) {
@@ -132,7 +133,6 @@ void bench_worker::run() {
 
   auto now = []() { return std::chrono::high_resolution_clock::now(); };
   auto next_generation_time = now();
-  double rate = 1.0; // Set your desired QPS/RPS here
 
   while (running && (run_mode != RUNMODE_OPS || ntxn_commits < ops_per_worker)) {
     while (now() < next_generation_time) {
@@ -147,8 +147,8 @@ void bench_worker::run() {
     for (size_t i = 0; i < workload.size(); i++) {
       if ((i + 1) == workload.size() || d < workload[i].frequency) {
         retry:
-        timer t;
         const unsigned long old_seed = rng(); // Save RNG state
+        timer t;
         const auto ret = workload[i].fn(this);
 
         if (likely(ret.first)) {
@@ -184,8 +184,8 @@ void bench_worker::run() {
       d -= workload[i].frequency;
     }
 
-    next_generation_time += std::chrono::microseconds(
-        static_cast<int64_t>(poisson_process_next_arrival(rate) * 1e3));
+    next_generation_time += std::chrono::nanoseconds(
+        static_cast<int64_t>(poisson_process_next_arrival(poisson_rate) * 1e9));
   }
 }
 

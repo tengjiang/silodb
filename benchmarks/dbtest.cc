@@ -103,6 +103,7 @@ main(int argc, char **argv)
       {"disable-gc"                 , no_argument       , &disable_gc                , 1}   ,
       {"disable-snapshots"          , no_argument       , &disable_snapshots         , 1}   ,
       {"stats-server-sockfile"      , required_argument , 0                          , 'x'} ,
+      {"poisson-rate"               , required_argument , 0                          , 'z'} , // New --rate option
       {"no-reset-counters"          , no_argument       , &no_reset_counters         , 1}   ,
       {0, 0, 0, 0}
     };
@@ -158,6 +159,13 @@ main(int argc, char **argv)
       ops_per_worker = strtoul(optarg, NULL, 10);
       ALWAYS_ASSERT(ops_per_worker > 0);
       run_mode = RUNMODE_OPS;
+    case 'z': // New --rate option
+        poisson_rate = strtod(optarg, NULL);
+        if (poisson_rate <= 0.0) {
+            cerr << "Error: rate must be positive\n";
+            exit(EXIT_FAILURE);
+        }
+        break;
 
     case 'o':
       bench_opts = optarg;
@@ -330,6 +338,7 @@ main(int argc, char **argv)
     cerr << "Database Benchmark:"                           << endl;
     cerr << "  pid: " << getpid()                           << endl;
     cerr << "settings:"                                     << endl;
+    cerr << "  rate        : " << poisson_rate              << endl;
     cerr << "  par-loading : " << enable_parallel_loading   << endl;
     cerr << "  pin-cpus    : " << pin_cpus                  << endl;
     cerr << "  slow-exit   : " << slow_exit                 << endl;
