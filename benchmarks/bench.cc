@@ -4,6 +4,8 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <random>
+#include <chrono>
 
 #include <stdlib.h>
 #include <sched.h>
@@ -43,6 +45,13 @@ int slow_exit = 0;
 int retry_aborted_transaction = 0;
 int no_reset_counters = 0;
 int backoff_aborted_transaction = 0;
+
+// Poisson process arrivals
+double poisson_process_next_arrival(double rate) {
+  static thread_local std::mt19937 generator(std::random_device{}());
+  std::exponential_distribution<double> distribution(rate);
+  return distribution(generator);
+}
 
 template <typename T>
 static void
@@ -103,38 +112,51 @@ write_cb(void *p, const char *s)
 }
 
 static event_avg_counter evt_avg_abort_spins("avg_abort_spins");
-
-void
-bench_worker::run()
-{
-  // XXX(stephentu): so many nasty hacks here. should actually
-  // fix some of this stuff one day
+void bench_worker::run() {
   if (set_core_id)
-    coreid::set_core_id(worker_id); // cringe
-  {
-    scoped_rcu_region r; // register this thread in rcu region
-  }
+    coreid::set_core_id(worker_id);
+
+  scoped_rcu_region r; // Register this thread in the RCU region
   on_run_setup();
   scoped_db_thread_ctx ctx(db, false);
+
   const workload_desc_vec workload = get_workload();
   txn_counts.resize(workload.size());
+
   barrier_a->count_down();
   barrier_b->wait_for();
+
+  // Use a standard random number generator for uniform distribution
+  std::mt19937 rng(std::random_device{}());
+  std::uniform_real_distribution<> uniform_dist(0.0, 1.0);
+
+  auto now = []() { return std::chrono::high_resolution_clock::now(); };
+  auto next_generation_time = now();
+  double rate = 1.0; // Set your desired QPS/RPS here
+
   while (running && (run_mode != RUNMODE_OPS || ntxn_commits < ops_per_worker)) {
-    double d = r.next_uniform();
+    while (now() < next_generation_time) {
+      nop_pause(); // Busy wait until the next generation time
+    }
+
+    auto start_time = now();
+    uint64_t queueing_delay_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        start_time - next_generation_time).count();
+
+    double d = uniform_dist(rng); // Use uniform distribution for randomness
     for (size_t i = 0; i < workload.size(); i++) {
       if ((i + 1) == workload.size() || d < workload[i].frequency) {
-      retry:
+        retry:
         timer t;
-        const unsigned long old_seed = r.get_seed();
+        const unsigned long old_seed = rng(); // Save RNG state
         const auto ret = workload[i].fn(this);
+
         if (likely(ret.first)) {
           ++ntxn_commits;
-          double duration = t.lap();
-          latency_numer_us += duration;
+          uint64_t request_latency_ns = t.lap(); // Keep latency in nanoseconds
+          latency_numer_us += (request_latency_ns + queueing_delay_ns) / 1e3; // Convert to microseconds
 #ifdef ENABLE_INSTR
-          latencies.push_back(duration);
-          // txn_type.push_back(i);
+          latencies.push_back((request_latency_ns + queueing_delay_ns) / 1e3);
 #endif
           backoff_shifts >>= 1;
         } else {
@@ -144,41 +166,29 @@ bench_worker::run()
               if (backoff_shifts < 63)
                 backoff_shifts++;
               uint64_t spins = 1UL << backoff_shifts;
-              spins *= 100; // XXX: tuned pretty arbitrarily
+              spins *= 100; // Tuned arbitrarily
               evt_avg_abort_spins.offer(spins);
               while (spins) {
                 nop_pause();
                 spins--;
               }
             }
-            r.set_seed(old_seed);
+            rng.seed(old_seed); // Restore RNG state
             goto retry;
           }
         }
-        size_delta += ret.second; // should be zero on abort
-        txn_counts[i]++; // txn_counts aren't used to compute throughput (is
-                         // just an informative number to print to the console
-                         // in verbose mode)
+        size_delta += ret.second;
+        txn_counts[i]++;
         break;
       }
       d -= workload[i].frequency;
     }
+
+    next_generation_time += std::chrono::microseconds(
+        static_cast<int64_t>(poisson_process_next_arrival(rate) * 1e6));
   }
-// #ifdef ENABLE_INSTR
-//   ofstream myfile;
-//   char buff[100];
-//   sprintf(buff, "worker_%d_latencies.txt", worker_id);
-//   std::string buffAsStdStr = buff;
-//   myfile.open (buffAsStdStr);
-//   for (unsigned int i = 0; i< latencies.size(); i ++) {
-//     myfile << latencies[i];
-//     myfile << "\t";
-//     myfile << txn_type[i];
-//     myfile << "\n";
-//   }
-//   myfile.close();
-// #endif
 }
+
 
 void
 bench_runner::run()
@@ -353,10 +363,12 @@ for (size_t i = 0; i < nthreads; i++) {
 }
 
 // Calculate p99 latency
+    cerr << "latency data points: " << all_latencies.size() << endl;
 double p99_latency_ms = 0.0;
 if (!all_latencies.empty()) {
     std::sort(all_latencies.begin(), all_latencies.end());
     size_t p99_index = static_cast<size_t>(0.99 * all_latencies.size());
+    cerr << "p99 index: " << p99_index << endl;
     if (p99_index >= all_latencies.size())
         p99_index = all_latencies.size() - 1; // Bounds check
     p99_latency_ms = all_latencies[p99_index] / 1000.0; // Convert from us to ms
@@ -376,7 +388,7 @@ if (!all_latencies.empty()) {
     cerr << "avg_per_core_persist_throughput: " << avg_per_core_persist_throughput << " ops/sec/core" << endl;
     cerr << "avg_latency: " << avg_latency_ms << " ms" << endl;
 #ifdef ENABLE_INSTR
-    cerr << "p99_latency: " << p99_latency_ms << " ms" << endl;
+    cerr << "p99_latency (end_to_end): " << p99_latency_ms << " ms" << endl;
 #endif
     cerr << "avg_persist_latency: " << avg_persist_latency_ms << " ms" << endl;
     cerr << "agg_abort_rate: " << agg_abort_rate << " aborts/sec" << endl;
