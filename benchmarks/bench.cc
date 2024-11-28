@@ -154,7 +154,7 @@ void bench_worker::run() {
 
         if (likely(ret.first)) {
           ++ntxn_commits;
-          uint64_t request_latency_ns = t.lap(); // Keep latency in nanoseconds
+          uint64_t request_latency_ns = 1000 * t.lap(); // Keep latency in nanoseconds
           latency_numer_us += (request_latency_ns + queueing_delay_ns) / 1e3; // Convert to microseconds
 #ifdef ENABLE_INSTR
           latencies.push_back((request_latency_ns + queueing_delay_ns) / 1e3);
