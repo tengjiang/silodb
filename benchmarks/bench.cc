@@ -142,6 +142,7 @@ void bench_worker::run() {
     auto start_time = now();
     uint64_t queueing_delay_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         start_time - next_generation_time).count();
+    queueing_delay_ns = (queueing_delay_ns > 0) ?  queueing_delay_ns : 0;
 
     double d = uniform_dist(rng); // Use uniform distribution for randomness
     for (size_t i = 0; i < workload.size(); i++) {
